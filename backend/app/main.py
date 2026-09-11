@@ -1,3 +1,4 @@
+import os
 import uuid
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -73,12 +74,22 @@ app = FastAPI(
     description="Enterprise AI Agent Reliability & Control Platform",
     version="0.3.0",
 )
+default_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+configured_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+allowed_origins = default_origins + configured_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

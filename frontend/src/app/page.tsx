@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 
 type Metrics = {
   total_runs: number;
@@ -258,7 +260,7 @@ export default function Home() {
 
   const [approvalStatus, setApprovalStatus] =
   useState<string | null>(null);
-
+  
   const [approvalMessage, setApprovalMessage] =
   useState("");
   const [approvalTimeline, setApprovalTimeline] =
@@ -396,8 +398,8 @@ export default function Home() {
     async function loadDashboard() {
       try {
         const [metricsResponse, runsResponse] = await Promise.all([
-          fetch("http://127.0.0.1:8000/agent/metrics"),
-          fetch("http://127.0.0.1:8000/agent/runs?limit=20"),
+          fetch(`${API_BASE_URL}/agent/metrics`),
+          fetch(`${API_BASE_URL}/agent/runs?limit=20`),
         ]);
 
         if (!metricsResponse.ok || !runsResponse.ok) {
@@ -427,10 +429,10 @@ async function loadEvaluations() {
     const [metricsResponse, resultsResponse] =
       await Promise.all([
         fetch(
-          "http://127.0.0.1:8000/evaluations/metrics"
+          `${API_BASE_URL}/evaluations/metrics`
         ),
         fetch(
-          "http://127.0.0.1:8000/evaluations/results?limit=50"
+          `${API_BASE_URL}/evaluations/results?limit=50`
         ),
       ]);
 
@@ -474,7 +476,7 @@ async function loadFailureDetails(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/evaluations/results/${evaluationId}/failure-details`
+      `${API_BASE_URL}/evaluations/results/${evaluationId}/failure-details`
     );
 
     if (!response.ok) {
@@ -507,7 +509,7 @@ async function loadFailureExplorerTraces(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/agent/runs/${runId}/traces`
+      `${API_BASE_URL}/agent/runs/${runId}/traces`
     );
 
     if (!response.ok) {
@@ -545,7 +547,7 @@ async function loadTestSuites() {
 
   try {
     const response = await fetch(
-      "http://127.0.0.1:8000/evaluations/test-suites"
+      `${API_BASE_URL}/evaluations/test-suites`
     );
 
     if (!response.ok) {
@@ -579,7 +581,7 @@ async function loadTestSuiteRunHistory() {
 
   try {
     const response = await fetch(
-      "http://127.0.0.1:8000/evaluations/test-suite-runs"
+      `${API_BASE_URL}/evaluations/test-suite-runs`
     );
 
     if (!response.ok) {
@@ -617,7 +619,7 @@ async function loadTestSuiteRegression(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/evaluations/test-suites/${suiteId}/regression`
+      `${API_BASE_URL}/evaluations/test-suites/${suiteId}/regression`
     );
 
     if (!response.ok) {
@@ -655,7 +657,7 @@ async function loadTestCaseRegression(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/evaluations/test-suites/${suiteId}/case-regression`
+      `${API_BASE_URL}/evaluations/test-suites/${suiteId}/case-regression`
     );
 
     if (!response.ok) {
@@ -706,7 +708,7 @@ async function generateAITests(
         .filter(Boolean);
 
     const response = await fetch(
-      "http://127.0.0.1:8000/evaluations/generate-tests",
+      `${API_BASE_URL}/evaluations/generate-tests`,
       {
         method: "POST",
         headers: {
@@ -793,7 +795,7 @@ async function saveSelectedGeneratedTests() {
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/evaluations/test-suites/${testGeneratorSuiteId}/generated-tests`,
+      `${API_BASE_URL}/evaluations/test-suites/${testGeneratorSuiteId}/generated-tests`,
       {
         method: "POST",
         headers: {
@@ -865,7 +867,7 @@ async function loadReliabilityScore(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/evaluations/test-suites/${suiteId}/reliability-score`
+      `${API_BASE_URL}/evaluations/test-suites/${suiteId}/reliability-score`
     );
 
     if (!response.ok) {
@@ -905,7 +907,7 @@ async function runTestSuite(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/evaluations/test-suites/${suiteId}/run`,
+      `${API_BASE_URL}/evaluations/test-suites/${suiteId}/run`,
       {
         method: "POST",
       }
@@ -961,20 +963,20 @@ async function openRunDetails(run: AgentRun) {
   try {
     const requests = [
       fetch(
-        `http://127.0.0.1:8000/agent/runs/${run.run_id}/traces`
+        `${API_BASE_URL}/agent/runs/${run.run_id}/traces`
       ),
     ];
 
 if (run.approval_required && run.approval_id) {
   requests.push(
     fetch(
-      `http://127.0.0.1:8000/approvals/${run.approval_id}`
+      `${API_BASE_URL}/approvals/${run.approval_id}`
     )
   );
 
   requests.push(
     fetch(
-      `http://127.0.0.1:8000/approvals/${run.approval_id}/timeline`
+      `${API_BASE_URL}/approvals/${run.approval_id}/timeline`
     )
   );
 }
@@ -1035,7 +1037,7 @@ async function handleApprovalDecision(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/approvals/${selectedRun.approval_id}/${decision}`,
+      `${API_BASE_URL}/approvals/${selectedRun.approval_id}/${decision}`,
       {
         method: "POST",
       }
@@ -1088,7 +1090,7 @@ async function handleApprovedExecution() {
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/approvals/${selectedRun.approval_id}/execute`,
+      `${API_BASE_URL}/approvals/${selectedRun.approval_id}/execute`,
       {
         method: "POST",
       }
@@ -1133,7 +1135,7 @@ async function loadApprovals() {
 
   try {
     const response = await fetch(
-      "http://127.0.0.1:8000/approvals?limit=100"
+      `${API_BASE_URL}/approvals?limit=100`
     );
 
     if (!response.ok) {
@@ -1175,10 +1177,10 @@ async function openApprovalDetails(
     const [approvalResponse, timelineResponse] =
       await Promise.all([
         fetch(
-          `http://127.0.0.1:8000/approvals/${approval.approval_id}`
+          `${API_BASE_URL}/approvals/${approval.approval_id}`
         ),
         fetch(
-          `http://127.0.0.1:8000/approvals/${approval.approval_id}/timeline`
+          `${API_BASE_URL}/approvals/${approval.approval_id}/timeline`
         ),
       ]);
 
@@ -1220,10 +1222,10 @@ async function refreshSelectedApproval(
     const [approvalResponse, timelineResponse] =
       await Promise.all([
         fetch(
-          `http://127.0.0.1:8000/approvals/${approvalId}`
+          `${API_BASE_URL}/approvals/${approvalId}`
         ),
         fetch(
-          `http://127.0.0.1:8000/approvals/${approvalId}/timeline`
+          `${API_BASE_URL}/approvals/${approvalId}/timeline`
         ),
       ]);
 
@@ -1260,7 +1262,7 @@ async function handleSelectedApprovalAction(
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:8000/approvals/${selectedApproval.approval_id}/${action}`,
+      `${API_BASE_URL}/approvals/${selectedApproval.approval_id}/${action}`,
       {
         method: "POST",
       }
