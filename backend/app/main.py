@@ -1,6 +1,7 @@
 import os
+import secrets
 import uuid
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from backend.app.db.models import Document
@@ -98,7 +99,68 @@ with engine.begin() as connection:
     connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
 Base.metadata.create_all(bind=engine)
+ROLE_LEVELS = {
+    "viewer": 1,
+    "operator": 2,
+    "admin": 3,
+}
 
+
+def get_current_role(
+    x_api_key: str | None = Header(default=None),
+) -> str:
+    if not x_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key.",
+        )
+
+    role_keys = {
+        "viewer": os.getenv("VIEWER_API_KEY"),
+        "operator": os.getenv("OPERATOR_API_KEY"),
+        "admin": os.getenv("ADMIN_API_KEY"),
+    }
+
+    configured_keys = {
+        role: key
+        for role, key in role_keys.items()
+        if key
+    }
+
+    if not configured_keys:
+        raise HTTPException(
+            status_code=503,
+            detail="Platform authentication is not configured.",
+        )
+
+    for role, expected_key in configured_keys.items():
+        if secrets.compare_digest(x_api_key, expected_key):
+            return role
+
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid API key.",
+    )
+
+
+def require_role(minimum_role: str):
+    if minimum_role not in ROLE_LEVELS:
+        raise ValueError(
+            f"Unknown role: {minimum_role}"
+        )
+
+    def role_dependency(
+        current_role: str = Depends(get_current_role),
+    ) -> str:
+        if ROLE_LEVELS[current_role] < ROLE_LEVELS[minimum_role]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"{minimum_role} role required.",
+            )
+
+        return current_role
+
+    return role_dependency
 class TaskRequest(BaseModel):
     task: str
     document_id: int | None = None
@@ -445,7 +507,9 @@ def delete_document(document_id: int):
             "message": "Document and its chunks were deleted."
         }        
 @app.get("/tools")
-def get_tools():
+def get_tools(
+    current_role: str = Depends(require_role("operator")),
+):
     return {
         "tools": list_registered_tools()
     }        
@@ -721,7 +785,9 @@ def get_agent_runs(limit: int = 50):
         "runs": runs,
     }    
 @app.get("/agent/metrics")
-def get_agent_metrics():
+def get_agent_metrics(
+    current_role: str = Depends(require_role("viewer")),
+):
     return get_agent_run_metrics()    
 @app.get("/agent/runs/{run_id}/traces")
 def get_agent_run_traces(run_id: str):

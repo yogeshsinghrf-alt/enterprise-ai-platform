@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = "/api/backend?path=";
 
 type Metrics = {
   total_runs: number;
@@ -239,6 +238,10 @@ type TestCaseRegression = {
   stable_cases: TestCaseRegressionItem[];
 };
 export default function Home() {
+  const [authenticated, setAuthenticated] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [activeView, setActiveView] =
   useState<
   "overview" |
@@ -260,7 +263,7 @@ export default function Home() {
 
   const [approvalStatus, setApprovalStatus] =
   useState<string | null>(null);
-  
+
   const [approvalMessage, setApprovalMessage] =
   useState("");
   const [approvalTimeline, setApprovalTimeline] =
@@ -394,33 +397,41 @@ export default function Home() {
   const [testGeneratorMessage, setTestGeneratorMessage] =
   useState("");
 
-  useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const [metricsResponse, runsResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/agent/metrics`),
-          fetch(`${API_BASE_URL}/agent/runs?limit=20`),
-        ]);
+useEffect(() => {
+  if (!authenticated) {
+    setLoading(false);
+    return;
+  }
 
-        if (!metricsResponse.ok || !runsResponse.ok) {
-          throw new Error("Failed to load dashboard data");
-        }
+  async function loadDashboard() {
+    setLoading(true);
+    setError("");
 
-        const metricsData = await metricsResponse.json();
-        const runsData = await runsResponse.json();
+    try {
+      const [metricsResponse, runsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/agent/metrics`),
+        fetch(`${API_BASE_URL}/agent/runs?limit=20`),
+      ]);
 
-        setMetrics(metricsData);
-        setRuns(runsData.runs ?? []);
-      } catch (err) {
-        console.error(err);
-        setError("Could not connect to backend.");
-      } finally {
-        setLoading(false);
+      if (!metricsResponse.ok || !runsResponse.ok) {
+        throw new Error("Failed to load dashboard data");
       }
-    }
 
-    loadDashboard();
-  }, []);
+      const metricsData = await metricsResponse.json();
+      const runsData = await runsResponse.json();
+
+      setMetrics(metricsData);
+      setRuns(runsData.runs ?? []);
+    } catch (err) {
+      console.error(err);
+      setError("Could not connect to backend.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadDashboard();
+}, [authenticated]);
 async function loadEvaluations() {
   setEvaluationsLoading(true);
   setEvaluationsError("");
@@ -467,7 +478,7 @@ async function loadEvaluations() {
   } finally {
     setEvaluationsLoading(false);
   }
-}  
+}
 async function loadFailureDetails(
   evaluationId: string
 ) {
@@ -1128,7 +1139,7 @@ async function handleApprovedExecution() {
   } finally {
     setApprovalActionLoading(false);
   }
-}  
+}
 async function loadApprovals() {
   setApprovalsLoading(true);
   setApprovalsError("");
@@ -1158,7 +1169,7 @@ async function loadApprovals() {
   } finally {
     setApprovalsLoading(false);
   }
-}  
+}
 const filteredApprovals =
   approvalFilter === "all"
     ? approvals
@@ -1313,7 +1324,116 @@ async function handleSelectedApprovalAction(
     setSelectedApprovalLoading(false);
   }
 }
+async function handleLogin(
+  event: React.FormEvent<HTMLFormElement>
+) {
+  event.preventDefault();
+
+  setLoginLoading(true);
+  setLoginError("");
+
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        password,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Invalid password.");
+    }
+
+    setAuthenticated(true);
+    setPassword("");
+  } catch (err) {
+    setLoginError(
+      err instanceof Error
+        ? err.message
+        : "Login failed."
+    );
+  } finally {
+    setLoginLoading(false);
+  }
+}
+
+async function handleLogout() {
+  await fetch("/api/logout", {
+    method: "POST",
+  });
+
+  setAuthenticated(false);
+  setPassword("");
+}
+
+if (!authenticated) {
   return (
+    <main className="flex min-h-screen items-center justify-center bg-[#F5F7FA] px-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mb-8">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 font-semibold text-white">
+            AI
+          </div>
+
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Enterprise AI Platform
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Authorized access only
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleLogin}
+          className="space-y-4"
+        >
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-2 block text-sm font-medium text-slate-700"
+            >
+              Access password
+            </label>
+
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
+              autoComplete="current-password"
+              required
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-500"
+              placeholder="Enter password"
+            />
+          </div>
+
+          {loginError && (
+            <p className="text-sm text-red-600">
+              {loginError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loginLoading}
+            className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loginLoading
+              ? "Signing in..."
+              : "Sign in"}
+          </button>
+        </form>
+      </div>
+    </main>
+  );
+}
+return (
     <main className="min-h-screen bg-[#F5F7FA] text-slate-900">
       <div className="flex min-h-screen">
 
@@ -1394,11 +1514,11 @@ async function handleSelectedApprovalAction(
     loadReliabilityScore(
     "903240a3-0cbd-4a54-986e-cfceff0aaba8"
     );
-    
+
     testSuites.forEach((suite) => {
       loadTestSuiteRegression(suite.suite_id);
       loadTestCaseRegression(suite.suite_id);
-    })  
+    })
   }}
   className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${
     activeView === "test-suites"
@@ -1470,6 +1590,13 @@ async function handleSelectedApprovalAction(
         <div className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600">
           Production
         </div>
+          <button
+          type="button"
+          onClick={handleLogout}
+          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          Logout
+        </button>
       </div>
     </header>
 
@@ -1629,7 +1756,7 @@ async function handleSelectedApprovalAction(
                           </td>
 
                           <td className="px-5 py-4 text-slate-400">
-                            {run.model ?? "—"}
+                            {run.model ?? "â€”"}
                           </td>
 
                           <td className="px-5 py-4">
@@ -1645,7 +1772,7 @@ async function handleSelectedApprovalAction(
                           </td>
 
                           <td className="px-5 py-4 font-medium text-slate-700">
-                            {run.evaluation_score ?? "—"}
+                            {run.evaluation_score ?? "â€”"}
                           </td>
 
                           <td className="px-5 py-4 text-slate-400">
@@ -1653,7 +1780,7 @@ async function handleSelectedApprovalAction(
                               ? `${(
                                   run.latency_ms / 1000
                                 ).toFixed(2)}s`
-                              : "—"}
+                              : "â€”"}
                           </td>
 
                           <td className="px-5 py-4">
@@ -1738,7 +1865,7 @@ async function handleSelectedApprovalAction(
                       value={
                         selectedRun.evaluation_score !== null
                           ? `${selectedRun.evaluation_score}/100`
-                          : "—"
+                          : "â€”"
                       }
                     />
 
@@ -1749,14 +1876,14 @@ async function handleSelectedApprovalAction(
                           ? `${(
                               selectedRun.latency_ms / 1000
                             ).toFixed(2)}s`
-                          : "—"
+                          : "â€”"
                       }
                     />
                   </div>
 {selectedRun.approval_required && (
   <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-      
+
       {/* LEFT SIDE */}
       <div>
         <div className="flex items-center gap-2">
@@ -1790,7 +1917,7 @@ async function handleSelectedApprovalAction(
             </p>
 
             <p className="mt-1 font-mono text-xs font-medium text-slate-800">
-              {selectedRun.selected_tool ?? "—"}
+              {selectedRun.selected_tool ?? "â€”"}
             </p>
           </div>
 
@@ -1803,7 +1930,7 @@ async function handleSelectedApprovalAction(
               className="mt-1 max-w-[260px] truncate font-mono text-xs font-medium text-slate-800"
               title={selectedRun.approval_id ?? ""}
             >
-              {selectedRun.approval_id ?? "—"}
+              {selectedRun.approval_id ?? "â€”"}
             </p>
           </div>
         </div>
@@ -1958,7 +2085,7 @@ async function handleSelectedApprovalAction(
         ))}
       </div>
     )}
-   </div>    
+   </div>
   </div>
 )}
                   {/* Trace timeline */}
@@ -2031,7 +2158,7 @@ async function handleSelectedApprovalAction(
                                           trace.duration_ms /
                                           1000
                                         ).toFixed(2)}s`
-                                      : "—"}
+                                      : "â€”"}
                                   </span>
                                 </div>
                               </div>
@@ -2126,7 +2253,7 @@ async function handleSelectedApprovalAction(
         <p className="mt-1 text-sm font-semibold text-slate-800">
           {selectedFailureDetails.evaluation_score !== null
             ? `${selectedFailureDetails.evaluation_score}/100`
-            : "—"}
+            : "â€”"}
         </p>
       </div>
 
@@ -2246,7 +2373,7 @@ async function handleSelectedApprovalAction(
       </div>
     </div>
   </div>
-)}            
+)}
           </>
         )}
 {activeView === "evaluations" && (
@@ -2306,7 +2433,7 @@ async function handleSelectedApprovalAction(
             value={
               evaluationMetrics.average_evaluation_score !== null
                 ? evaluationMetrics.average_evaluation_score
-                : "—"
+                : "â€”"
             }
             subtitle="Average evaluator quality score"
           />
@@ -2412,7 +2539,7 @@ if (evaluation.run_id) {
                       <td className="px-5 py-4 font-medium text-slate-700">
                         {evaluation.evaluation_score !== null
                           ? `${evaluation.evaluation_score}/100`
-                          : "—"}
+                          : "â€”"}
                       </td>
 
                       <td className="px-5 py-4">
@@ -2511,7 +2638,7 @@ if (evaluation.run_id) {
           value={
             selectedEvaluation.evaluation_score !== null
               ? `${selectedEvaluation.evaluation_score}/100`
-              : "—"
+              : "â€”"
           }
         />
 
@@ -2710,7 +2837,7 @@ if (evaluation.run_id) {
                 selectedFailureDetails
                   .evaluation_score !== null
                   ? `${selectedFailureDetails.evaluation_score}/100`
-                  : "—"
+                  : "â€”"
               }
             />
 
@@ -2935,7 +3062,7 @@ if (evaluation.run_id) {
                                       trace.duration_ms /
                                       1000
                                     ).toFixed(2)}s`
-                                  : "—"}
+                                  : "â€”"}
                               </span>
                             </div>
                           </div>
@@ -2977,7 +3104,7 @@ if (evaluation.run_id) {
       </>
     )}
   </section>
-)}  
+)}
 {activeView === "test-suites" && (
   <section>
     <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -3537,7 +3664,7 @@ if (evaluation.run_id) {
       </button>
     </div>
   </div>
-)} 
+)}
   </div>
 )}
                 {suiteRegressionLoading[suite.suite_id] && (
@@ -3609,7 +3736,7 @@ if (evaluation.run_id) {
                                     value={
                                       regression.previous_run
                                         ? `${regression.previous_run.pass_rate}%`
-                                        : "—"
+                                        : "â€”"
                                     }
                                   />
 
@@ -3622,7 +3749,7 @@ if (evaluation.run_id) {
                                     label="Change"
                                     value={
                                       passRateChange === null
-                                        ? "—"
+                                        ? "â€”"
                                         : `${passRateChange > 0 ? "+" : ""}${passRateChange} pp`
                                     }
                                   />
@@ -3677,7 +3804,7 @@ if (evaluation.run_id) {
                                     >
                                       {regression.failed_tests_change ===
                                       null
-                                        ? "—"
+                                        ? "â€”"
                                         : `${
                                             regression.failed_tests_change >
                                             0
@@ -3804,9 +3931,9 @@ if (evaluation.run_id) {
                         <span>
                           Score:{" "}
                           <strong className="font-medium text-slate-700">
-                            {item.previous_score ?? "—"}
-                            {" → "}
-                            {item.current_score ?? "—"}
+                            {item.previous_score ?? "â€”"}
+                            {" â†’ "}
+                            {item.current_score ?? "â€”"}
                           </strong>
                         </span>
                       </div>
@@ -3916,7 +4043,7 @@ if (evaluation.run_id) {
                             </strong>
                           </span>
 
-                          <span>•</span>
+                          <span>â€¢</span>
 
                           <span
                             className="font-mono"
@@ -4026,7 +4153,7 @@ if (evaluation.run_id) {
       );
     })()}
   </div>
-)}                
+)}
               </div>
             </div>
           ))}
@@ -4180,7 +4307,7 @@ if (evaluation.run_id) {
                             ? new Date(
                                 run.started_at
                               ).toLocaleString()
-                            : "—"}
+                            : "â€”"}
                         </td>
                       </tr>
                     ))}
@@ -4581,7 +4708,7 @@ if (evaluation.run_id) {
   </div>
 )}
   </section>
-)}        
+)}
        </div>
      </div>
    </div>
@@ -4675,13 +4802,13 @@ function StatusBadge({ status }: { status: string }) {
 
 function formatDate(value: string | null) {
   if (!value) {
-    return "—";
+    return "â€”";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "—";
+    return "â€”";
   }
 
   return date.toLocaleString();
@@ -4739,7 +4866,7 @@ function formatNodeName(value: string) {
 
 function formatTraceValue(value: unknown) {
   if (value === null || value === undefined) {
-    return "—";
+    return "â€”";
   }
 
   if (typeof value === "boolean") {
