@@ -1,11 +1,12 @@
 import os
 import secrets
 import uuid
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from backend.app.db.models import Document
 from fastapi.middleware.cors import CORSMiddleware
+from backend.app.rate_limit import enforce_rate_limit
 
 from backend.app.audit.logger import (
     list_audit_events,
@@ -173,17 +174,17 @@ class ToolExecutionRequest(BaseModel):
     tool_name: str
 class ExternalEvaluationRequest(BaseModel):
     endpoint_url: str
-    timeout_seconds: int = 30    
+    timeout_seconds: int = 30
     tool_mapping: dict[str, str] | None = None
 class ExternalSuiteRunRequest(BaseModel):
     endpoint_url: str
     timeout_seconds: int = 30
-    tool_mapping: dict[str, str] | None = None    
+    tool_mapping: dict[str, str] | None = None
 
 class ExternalAgentRequest(BaseModel):
     endpoint_url: str
     task: str
-    timeout_seconds: int = 30    
+    timeout_seconds: int = 30
 class GeneratedTestToSave(BaseModel):
     name: str
     input_prompt: str
@@ -342,8 +343,15 @@ def execute_agent_task(
 @app.post("/external-agents/execute")
 def execute_external_agent_endpoint(
     request: ExternalAgentRequest,
+    http_request: Request,
     current_role: str = Depends(require_role("operator")),
 ):
+    enforce_rate_limit(
+        request=http_request,
+        bucket="external-agent-execute",
+        limit=10,
+        window_seconds=60,
+    )
     execution_result = execute_external_agent(
         endpoint_url=request.endpoint_url,
         task=request.task,
@@ -374,8 +382,15 @@ def execute_external_agent_endpoint(
 def run_external_test_case(
     case_id: str,
     request: ExternalEvaluationRequest,
+    http_request: Request,
     current_role: str = Depends(require_role("operator")),
 ):
+    enforce_rate_limit(
+        request=http_request,
+        bucket="external-test-case-run",
+        limit=10,
+        window_seconds=60,
+    )
     try:
         return execute_external_test_case_evaluation(
             case_id=case_id,
@@ -387,9 +402,18 @@ def run_external_test_case(
         raise HTTPException(
             status_code=404,
             detail=str(exc),
-        )    
+        )
 @app.post("/agent/run")
-def run_agent(request: TaskRequest):
+def run_agent(
+    request: TaskRequest,
+    http_request: Request,
+):
+    enforce_rate_limit(
+        request=http_request,
+        bucket="agent-run",
+        limit=20,
+        window_seconds=60,
+    )
     try:
         return execute_agent_task(
             task=request.task,
@@ -507,14 +531,14 @@ def delete_document(document_id: int):
             "document_id": document_id,
             "status": "deleted",
             "message": "Document and its chunks were deleted."
-        }        
+        }
 @app.get("/tools")
 def get_tools(
     current_role: str = Depends(require_role("operator")),
 ):
     return {
         "tools": list_registered_tools()
-    }        
+    }
 @app.post("/tools/execute")
 def execute_tool(request: ToolExecutionRequest):
     result = execute_registered_tool(
@@ -583,7 +607,7 @@ def get_approvals(
         "count": len(approvals),
         "status_filter": status,
         "approvals": approvals,
-    }    
+    }
 @app.get("/approvals/{approval_id}")
 def get_approval(approval_id: str):
     approval = get_approval_request(approval_id)
@@ -771,7 +795,7 @@ def execute_approved_tool(approval_id: str):
         "approval_id": approval_id,
         "approval_status": approval["status"],
         "execution": result,
-    }    
+    }
 @app.get("/agent/runs")
 def get_agent_runs(limit: int = 50):
     if limit < 1 or limit > 200:
@@ -785,12 +809,12 @@ def get_agent_runs(limit: int = 50):
     return {
         "count": len(runs),
         "runs": runs,
-    }    
+    }
 @app.get("/agent/metrics")
 def get_agent_metrics(
     current_role: str = Depends(require_role("viewer")),
 ):
-    return get_agent_run_metrics()    
+    return get_agent_run_metrics()
 @app.get("/agent/runs/{run_id}/traces")
 def get_agent_run_traces(run_id: str):
     traces = list_agent_traces(run_id)
@@ -799,7 +823,7 @@ def get_agent_run_traces(run_id: str):
         "run_id": run_id,
         "count": len(traces),
         "traces": traces,
-    }    
+    }
 @app.post("/evaluations/test-suites")
 def create_evaluation_test_suite(
     name: str,
@@ -866,7 +890,7 @@ def get_test_suite_run_history(
         "count": len(runs),
         "suite_id_filter": suite_id,
         "runs": runs,
-    }        
+    }
 @app.get(
     "/evaluations/test-suites/{suite_id}/regression"
 )
@@ -883,7 +907,7 @@ def get_test_suite_regression(
 
     return compare_latest_test_suite_runs(
         suite_id=suite_id,
-    )    
+    )
 @app.get(
     "/evaluations/test-suites/{suite_id}/case-regression"
 )
@@ -900,7 +924,7 @@ def get_test_suite_case_regression(
 
     return compare_latest_test_case_results(
         suite_id=suite_id,
-    )    
+    )
 @app.post("/evaluations/test-suites/{suite_id}/test-cases")
 def create_evaluation_test_case(
     suite_id: str,
@@ -972,7 +996,7 @@ def delete_test_case_endpoint(
     return {
         "case_id": case_id,
         "status": "deleted",
-    }    
+    }
 def execute_test_case_evaluation(
     case_id: str,
 ) -> dict:
@@ -1503,8 +1527,15 @@ def execute_external_test_case_evaluation(
 )
 def run_evaluation_test_case(
     case_id: str,
+    http_request: Request,
 ):
-    return execute_test_case_evaluation(
+ enforce_rate_limit(
+        request=http_request,
+        bucket="evaluation-test-case-run",
+        limit=20,
+        window_seconds=60,
+    )
+ return execute_test_case_evaluation(
         case_id
     )
 @app.delete(
@@ -1531,11 +1562,19 @@ def delete_evaluation_test_suite(
             deleted_suite["suite_id"]
         ),
         "name": deleted_suite["name"],
-    }    
+    }
 @app.post("/evaluations/test-suites/{suite_id}/run")
 def run_evaluation_test_suite(
     suite_id: str,
+    http_request: Request,
 ):
+    enforce_rate_limit(
+        request=http_request,
+        bucket="evaluation-test-suite-run",
+        limit=5,
+        window_seconds=60,
+    )
+
     test_suite = get_test_suite(suite_id)
 
     if test_suite is None:
@@ -1700,8 +1739,15 @@ def run_evaluation_test_suite(
 def run_external_evaluation_test_suite(
     suite_id: str,
     request: ExternalSuiteRunRequest,
+    http_request: Request,
     current_role: str = Depends(require_role("operator")),
 ):
+    enforce_rate_limit(
+        request=http_request,
+        bucket="external-test-suite-run",
+        limit=5,
+        window_seconds=60,
+    )
     test_suite = get_test_suite(suite_id)
 
     if test_suite is None:
@@ -1949,4 +1995,4 @@ def get_reliability_score(
             detail="Test suite not found.",
         )
 
-    return result    
+    return result
