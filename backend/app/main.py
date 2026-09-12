@@ -100,6 +100,9 @@ with engine.begin() as connection:
     connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
 Base.metadata.create_all(bind=engine)
+from backend.app.db.inspect_schema import inspect_database
+
+inspect_database()
 ROLE_LEVELS = {
     "viewer": 1,
     "operator": 2,
