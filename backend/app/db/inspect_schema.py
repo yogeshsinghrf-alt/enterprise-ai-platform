@@ -1,6 +1,10 @@
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext
 from sqlalchemy import inspect, text
 
-from backend.app.db.database import engine
+from backend.app.db.database import Base, engine
+from backend.app.db import models
+
 
 
 def inspect_database() -> None:
@@ -67,7 +71,23 @@ def inspect_database() -> None:
         "Application tables:",
         ", ".join(tables),
     )
+    with engine.connect() as connection:
+        migration_context = MigrationContext.configure(
+            connection,
+            opts={
+                "compare_type": True,
+            },
+        )
 
+        differences = compare_metadata(
+            migration_context,
+            Base.metadata,
+        )
+
+    print(
+        "Schema differences:",
+        differences if differences else "none",
+    )
     print("=== INSPECTION COMPLETE ===")
 
 
