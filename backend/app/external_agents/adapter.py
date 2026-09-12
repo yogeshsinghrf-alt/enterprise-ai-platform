@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ipaddress
 import os
 import socket
@@ -26,7 +28,10 @@ def _validate_external_url(
     try:
         parsed = urlparse(endpoint_url)
     except ValueError:
-        return False, "Invalid external agent URL."
+        return (
+            False,
+            "Invalid external agent URL.",
+        )
 
     if parsed.scheme not in {"http", "https"}:
         return (
@@ -251,11 +256,14 @@ def normalize_external_agent_response(
                 "http_status"
             ),
             "result": "",
+            "selected_tool": None,
+            "approval_required": False,
+            "agent_name": None,
+            "raw_response": execution_result.get(
+                "response"
+            ),
             "error": execution_result.get(
                 "error"
-            ),
-            "endpoint_url": execution_result.get(
-                "endpoint_url"
             ),
         }
 
@@ -263,33 +271,120 @@ def normalize_external_agent_response(
         "response"
     )
 
-    result_text = ""
+    if not isinstance(
+        response_data,
+        dict,
+    ):
+        return {
+            "status": "failed",
+            "success": False,
+            "failure_type": "contract_failure",
+            "result": "",
+            "selected_tool": None,
+            "approval_required": False,
+            "agent_name": None,
+            "raw_response": response_data,
+            "error": (
+                "External agent response must "
+                "be a JSON object."
+            ),
+        }
 
-    if isinstance(response_data, dict):
-        result_text = str(
-            response_data.get(
-                "result",
-                response_data.get(
-                    "response",
-                    response_data,
-                ),
-            )
+    supported_fields = {
+        "result",
+        "output",
+        "answer",
+        "message",
+        "raw_text",
+        "selected_tool",
+        "tool",
+        "tool_name",
+        "approval_required",
+        "requires_approval",
+        "status",
+        "agent_name",
+    }
+
+    has_supported_field = any(
+        field in response_data
+        for field in supported_fields
+    )
+
+    if not has_supported_field:
+        return {
+            "status": "failed",
+            "success": False,
+            "failure_type": "contract_failure",
+            "result": "",
+            "selected_tool": None,
+            "approval_required": False,
+            "agent_name": None,
+            "raw_response": response_data,
+            "error": (
+                "External agent returned an "
+                "unsupported response contract."
+            ),
+        }
+
+    result_text = (
+        response_data.get("result")
+        or response_data.get("output")
+        or response_data.get("answer")
+        or response_data.get("message")
+        or response_data.get("raw_text")
+        or ""
+    )
+
+    selected_tool = (
+        response_data.get("selected_tool")
+        or response_data.get("tool")
+        or response_data.get("tool_name")
+    )
+
+    approval_required = bool(
+        response_data.get(
+            "approval_required",
+            False,
         )
-    else:
-        result_text = str(
-            response_data
+        or response_data.get(
+            "requires_approval",
+            False,
         )
+    )
+
+    external_status = str(
+        response_data.get(
+            "status",
+            "completed",
+        )
+    )
 
     return {
-        "status": "completed",
+        "status": external_status,
         "success": True,
         "failure_type": None,
-        "http_status": execution_result.get(
-            "http_status"
+        "result": str(result_text),
+        "selected_tool": selected_tool,
+        "approval_required": approval_required,
+        "agent_name": response_data.get(
+            "agent_name"
         ),
-        "result": result_text,
+        "raw_response": response_data,
         "error": None,
-        "endpoint_url": execution_result.get(
-            "endpoint_url"
-        ),
     }
+
+
+def map_external_tool_name(
+    external_tool: str | None,
+    tool_mapping: dict[str, str] | None = None,
+) -> str | None:
+    if external_tool is None:
+        return None
+
+    if not tool_mapping:
+        return external_tool
+
+    return tool_mapping.get(
+        external_tool,
+        external_tool,
+    )
