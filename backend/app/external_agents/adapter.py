@@ -1,8 +1,115 @@
-from __future__ import annotations
-
+import ipaddress
+import os
+import socket
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
+
+
+def _get_allowed_external_hosts() -> set[str]:
+    raw_hosts = os.getenv(
+        "EXTERNAL_AGENT_ALLOWED_HOSTS",
+        "",
+    )
+
+    return {
+        host.strip().lower()
+        for host in raw_hosts.split(",")
+        if host.strip()
+    }
+
+
+def _validate_external_url(
+    endpoint_url: str,
+) -> tuple[bool, str | None]:
+    try:
+        parsed = urlparse(endpoint_url)
+    except ValueError:
+        return False, "Invalid external agent URL."
+
+    if parsed.scheme not in {"http", "https"}:
+        return (
+            False,
+            "Only http and https external agent URLs are allowed.",
+        )
+
+    if not parsed.hostname:
+        return (
+            False,
+            "External agent URL must include a hostname.",
+        )
+
+    if parsed.username or parsed.password:
+        return (
+            False,
+            "Credentials in external agent URLs are not allowed.",
+        )
+
+    hostname = parsed.hostname.lower()
+
+    if hostname == "localhost":
+        return (
+            False,
+            "Localhost external agent URLs are not allowed.",
+        )
+
+    allowed_hosts = _get_allowed_external_hosts()
+
+    if not allowed_hosts:
+        return (
+            False,
+            "No external agent hosts are allowlisted.",
+        )
+
+    if hostname not in allowed_hosts:
+        return (
+            False,
+            "External agent host is not allowlisted.",
+        )
+
+    try:
+        address_info = socket.getaddrinfo(
+            hostname,
+            parsed.port
+            or (
+                443
+                if parsed.scheme == "https"
+                else 80
+            ),
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror:
+        return (
+            False,
+            "External agent hostname could not be resolved.",
+        )
+
+    for entry in address_info:
+        ip_text = entry[4][0]
+
+        try:
+            ip = ipaddress.ip_address(ip_text)
+        except ValueError:
+            return (
+                False,
+                "External agent resolved to an invalid IP address.",
+            )
+
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return (
+                False,
+                "External agent resolved to a restricted network address.",
+            )
+
+    return True, None
 
 
 def execute_external_agent(
@@ -11,6 +118,22 @@ def execute_external_agent(
     timeout_seconds: int = 30,
     headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    is_valid, validation_error = _validate_external_url(
+        endpoint_url
+    )
+
+    if not is_valid:
+        return {
+            "status": "failed",
+            "success": False,
+            "failure_type": "policy_failure",
+            "endpoint_url": endpoint_url,
+            "task": task,
+            "http_status": None,
+            "response": None,
+            "error": validation_error,
+        }
+
     request_headers = {
         "Content-Type": "application/json",
     }
@@ -24,6 +147,7 @@ def execute_external_agent(
             json={"task": task},
             headers=request_headers,
             timeout=timeout_seconds,
+            allow_redirects=False,
         )
 
         response.raise_for_status()
@@ -110,6 +234,8 @@ def execute_external_agent(
         "response": response_data,
         "error": None,
     }
+
+
 def normalize_external_agent_response(
     execution_result: dict[str, Any],
 ) -> dict[str, Any]:
@@ -122,136 +248,48 @@ def normalize_external_agent_response(
                 "integration_failure",
             ),
             "http_status": execution_result.get(
-            "http_status"
+                "http_status"
             ),
             "result": "",
-            "selected_tool": None,
-            "approval_required": False,
-            "agent_name": None,
-            "raw_response": execution_result.get(
-                "response"
-            ),
             "error": execution_result.get(
                 "error"
             ),
-        }
-
-    response_data = (
-        execution_result.get("response")
-    )
-
-    if not isinstance(
-        response_data,
-        dict,
-    ):
-        return {
-            "status": "failed",
-            "success": False,
-            "failure_type": "contract_failure",
-            "result": "",
-            "selected_tool": None,
-            "approval_required": False,
-            "agent_name": None,
-            "raw_response": response_data,
-            "error": (
-                "External agent response must "
-                "be a JSON object."
+            "endpoint_url": execution_result.get(
+                "endpoint_url"
             ),
         }
 
-    supported_fields = {
-        "result",
-        "output",
-        "answer",
-        "message",
-        "raw_text",
-        "selected_tool",
-        "tool",
-        "tool_name",
-        "approval_required",
-        "requires_approval",
-        "status",
-        "agent_name",
-    }
-
-    has_supported_field = any(
-        field in response_data
-        for field in supported_fields
+    response_data = execution_result.get(
+        "response"
     )
 
-    if not has_supported_field:
-        return {
-            "status": "failed",
-            "success": False,
-            "failure_type": "contract_failure",
-            "result": "",
-            "selected_tool": None,
-            "approval_required": False,
-            "agent_name": None,
-            "raw_response": response_data,
-            "error": (
-                "External agent returned an "
-                "unsupported response contract."
-            ),
-        }
+    result_text = ""
 
-    result_text = (
-        response_data.get("result")
-        or response_data.get("output")
-        or response_data.get("answer")
-        or response_data.get("message")
-        or response_data.get("raw_text")
-        or ""
-    )
-
-    selected_tool = (
-        response_data.get("selected_tool")
-        or response_data.get("tool")
-        or response_data.get("tool_name")
-    )
-
-    approval_required = bool(
-        response_data.get(
-            "approval_required",
-            False,
+    if isinstance(response_data, dict):
+        result_text = str(
+            response_data.get(
+                "result",
+                response_data.get(
+                    "response",
+                    response_data,
+                ),
+            )
         )
-        or response_data.get(
-            "requires_approval",
-            False,
+    else:
+        result_text = str(
+            response_data
         )
-    )
-
-    external_status = str(
-        response_data.get(
-            "status",
-            "completed",
-        )
-    )
 
     return {
-        "status": external_status,
+        "status": "completed",
         "success": True,
         "failure_type": None,
-        "result": str(result_text),
-        "selected_tool": selected_tool,
-        "approval_required": approval_required,
-        "agent_name": response_data.get(
-            "agent_name"
+        "http_status": execution_result.get(
+            "http_status"
         ),
-        "raw_response": response_data,
+        "result": result_text,
         "error": None,
+        "endpoint_url": execution_result.get(
+            "endpoint_url"
+        ),
     }
-def map_external_tool_name(
-    external_tool: str | None,
-    tool_mapping: dict[str, str] | None = None,
-) -> str | None:
-    if external_tool is None:
-        return None
-
-    if not tool_mapping:
-        return external_tool
-
-    return tool_mapping.get(
-        external_tool,
-        external_tool,
-    )        
