@@ -100,9 +100,15 @@ with engine.begin() as connection:
     connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
 
 Base.metadata.create_all(bind=engine)
-from backend.app.db.inspect_schema import inspect_database
+from alembic import command
+from alembic.config import Config
 
-inspect_database()
+alembic_config = Config("alembic.ini")
+
+command.stamp(
+    alembic_config,
+    "8e222a3933db",
+)
 ROLE_LEVELS = {
     "viewer": 1,
     "operator": 2,
