@@ -1,7 +1,22 @@
-import { createHmac, timingSafeEqual } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import {
+  createHmac,
+  timingSafeEqual,
+} from "crypto";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-const SESSION_COOKIE = "enterprise_ai_session";
+const SESSION_COOKIE =
+  "enterprise_ai_session";
+
+const LOGIN_LIMIT = 5;
+const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+
+const loginAttempts = new Map<
+  string,
+  number[]
+>();
 
 function signSession(secret: string) {
   return createHmac("sha256", secret)
@@ -9,9 +24,92 @@ function signSession(secret: string) {
     .digest("hex");
 }
 
+function getClientIdentity(
+  request: NextRequest,
+) {
+  const forwardedFor =
+    request.headers.get("x-forwarded-for");
+
+  if (forwardedFor) {
+    return forwardedFor
+      .split(",")[0]
+      .trim();
+  }
+
+  return "unknown";
+}
+
+function checkLoginRateLimit(
+  request: NextRequest,
+) {
+  const now = Date.now();
+
+  const identity =
+    getClientIdentity(request);
+
+  const existing =
+    loginAttempts.get(identity) ?? [];
+
+  const recent = existing.filter(
+    (timestamp) =>
+      now - timestamp <
+      LOGIN_WINDOW_MS,
+  );
+
+  if (recent.length >= LOGIN_LIMIT) {
+    const oldest = recent[0];
+
+    const retryAfterSeconds =
+      Math.max(
+        1,
+        Math.ceil(
+          (
+            LOGIN_WINDOW_MS -
+            (now - oldest)
+          ) / 1000,
+        ),
+      );
+
+    loginAttempts.set(
+      identity,
+      recent,
+    );
+
+    return retryAfterSeconds;
+  }
+
+  recent.push(now);
+
+  loginAttempts.set(
+    identity,
+    recent,
+  );
+
+  return null;
+}
+
 export async function POST(
   request: NextRequest,
 ) {
+  const retryAfter =
+    checkLoginRateLimit(request);
+
+  if (retryAfter !== null) {
+    return NextResponse.json(
+      {
+        detail:
+          "Too many login attempts. Try again later.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After":
+            String(retryAfter),
+        },
+      },
+    );
+  }
+
   const appPassword =
     process.env.APP_ACCESS_PASSWORD;
 
@@ -52,21 +150,27 @@ export async function POST(
 
   if (!passwordMatches) {
     return NextResponse.json(
-      { detail: "Invalid password." },
+      {
+        detail:
+          "Invalid password.",
+      },
       { status: 401 },
     );
   }
 
-  const response = NextResponse.json({
-    authenticated: true,
-  });
+  const response =
+    NextResponse.json({
+      authenticated: true,
+    });
 
   response.cookies.set({
     name: SESSION_COOKIE,
-    value: signSession(sessionSecret),
+    value:
+      signSession(sessionSecret),
     httpOnly: true,
     secure:
-      process.env.NODE_ENV === "production",
+      process.env.NODE_ENV ===
+      "production",
     sameSite: "strict",
     path: "/",
     maxAge: 60 * 60 * 8,
