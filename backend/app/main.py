@@ -342,6 +342,7 @@ def execute_agent_task(
 @app.post("/external-agents/execute")
 def execute_external_agent_endpoint(
     request: ExternalAgentRequest,
+    current_role: str = Depends(require_role("operator")),
 ):
     execution_result = execute_external_agent(
         endpoint_url=request.endpoint_url,
@@ -373,6 +374,7 @@ def execute_external_agent_endpoint(
 def run_external_test_case(
     case_id: str,
     request: ExternalEvaluationRequest,
+    current_role: str = Depends(require_role("operator")),
 ):
     try:
         return execute_external_test_case_evaluation(
@@ -1698,6 +1700,7 @@ def run_evaluation_test_suite(
 def run_external_evaluation_test_suite(
     suite_id: str,
     request: ExternalSuiteRunRequest,
+    current_role: str = Depends(require_role("operator")),
 ):
     test_suite = get_test_suite(suite_id)
 
