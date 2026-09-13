@@ -237,6 +237,22 @@ type TestCaseRegression = {
   improvements: TestCaseRegressionItem[];
   stable_cases: TestCaseRegressionItem[];
 };
+type RegisteredTool = {
+  name: string;
+  description: string;
+  risk_level: string;
+  requires_approval: boolean;
+};
+
+type AuditEvent = {
+  id: number;
+  event_type: string;
+  approval_id: string | null;
+  tool_name: string | null;
+  status: string;
+  details: Record<string, unknown>;
+  created_at: string | null;
+};
 export default function Home() {
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
@@ -244,11 +260,13 @@ export default function Home() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [activeView, setActiveView] =
   useState<
-  "overview" |
-  "agent-runs" |
-  "approvals" |
-  "evaluations" |
-  "test-suites"
+  | "overview"
+  | "agent-runs"
+  | "approvals"
+  | "evaluations"
+  | "test-suites"
+  | "tools-mcp"
+  | "audit-trail"
   >("overview");
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [runs, setRuns] = useState<AgentRun[]>([]);
@@ -397,6 +415,23 @@ export default function Home() {
 
   const [testGeneratorMessage, setTestGeneratorMessage] =
   useState("");
+  const [registeredTools, setRegisteredTools] =
+  useState<RegisteredTool[]>([]);
+
+  const [toolsLoading, setToolsLoading] =
+  useState(false);
+
+  const [toolsError, setToolsError] =
+  useState("");
+
+  const [auditEvents, setAuditEvents] =
+  useState<AuditEvent[]>([]);
+
+  const [auditLoading, setAuditLoading] =
+  useState(false);
+
+  const [auditError, setAuditError] =
+  useState("");  
 
 useEffect(() => {
   if (!authenticated) {
@@ -433,6 +468,71 @@ useEffect(() => {
 
   loadDashboard();
 }, [authenticated]);
+async function loadTools() {
+  setToolsLoading(true);
+  setToolsError("");
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/tools`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Failed to load registered tools."
+      );
+    }
+
+    const data = await response.json();
+
+    setRegisteredTools(
+      data.tools ?? []
+    );
+  } catch (err) {
+    console.error(err);
+
+    setToolsError(
+      err instanceof Error
+        ? err.message
+        : "Could not load registered tools."
+    );
+  } finally {
+    setToolsLoading(false);
+  }
+}
+
+async function loadAuditEvents() {
+  setAuditLoading(true);
+  setAuditError("");
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/audit/events?limit=50`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Failed to load audit events."
+      );
+    }
+
+    const data = await response.json();
+
+    setAuditEvents(
+      data.events ?? []
+    );
+  } catch (err) {
+    console.error(err);
+
+    setAuditError(
+      err instanceof Error
+        ? err.message
+        : "Could not load audit events."
+    );
+  } finally {
+    setAuditLoading(false);
+  }
+}
 async function loadEvaluations() {
   setEvaluationsLoading(true);
   setEvaluationsError("");
@@ -1543,23 +1643,45 @@ return (
         Platform
       </p>
 
-      <div className="mt-3 space-y-1">
-        <div className="px-3 py-2.5 text-sm text-slate-500">
-          Agents
-        </div>
+<div className="mt-3 space-y-1">
+  <div className="px-3 py-2.5 text-sm text-slate-400">
+    Agents
+  </div>
 
-        <div className="px-3 py-2.5 text-sm text-slate-500">
-          Tools & MCP
-        </div>
+  <button
+    type="button"
+    onClick={() => {
+      setActiveView("tools-mcp");
+      loadTools();
+    }}
+    className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${
+      activeView === "tools-mcp"
+        ? "bg-slate-100 font-medium text-slate-900"
+        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+    }`}
+  >
+    Tools & MCP
+  </button>
 
-        <div className="px-3 py-2.5 text-sm text-slate-500">
-          Audit Trail
-        </div>
+  <button
+    type="button"
+    onClick={() => {
+      setActiveView("audit-trail");
+      loadAuditEvents();
+    }}
+    className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${
+      activeView === "audit-trail"
+        ? "bg-slate-100 font-medium text-slate-900"
+        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+    }`}
+  >
+    Audit Trail
+  </button>
 
-        <div className="px-3 py-2.5 text-sm text-slate-500">
-          Settings
-        </div>
-      </div>
+  <div className="px-3 py-2.5 text-sm text-slate-400">
+    Settings
+  </div>
+</div>
     </nav>
 
     <div className="border-t border-slate-200 p-4">
@@ -1616,28 +1738,36 @@ return (
     Enterprise AI Runtime & Control Platform
   </p>
 
-<h1 className="mt-2 text-4xl font-semibold">
+<h1 className="text-3xl font-semibold tracking-tight text-white">
   {activeView === "overview"
-    ? "AI Control Center"
+    ? "Overview"
     : activeView === "agent-runs"
-    ? "Agent Runs"
-    : activeView === "approvals"
-      ? "Approval Operations"
-      : activeView === "evaluations"
-        ? "Evaluations"
-        : "Test Suites"}
+      ? "Agent Runs"
+      : activeView === "approvals"
+        ? "Approvals"
+        : activeView === "evaluations"
+          ? "Evaluations"
+          : activeView === "test-suites"
+            ? "Test Suites"
+            : activeView === "tools-mcp"
+              ? "Tools & MCP"
+              : "Audit Trail"}
 </h1>
 
 <p className="mt-3 text-slate-400">
   {activeView === "overview"
     ? "Operational visibility across enterprise AI agents."
     : activeView === "agent-runs"
-    ? "Inspect enterprise AI agent executions, tools, quality, latency, and approval activity."
-    : activeView === "approvals"
-      ? "Review, govern, and track protected AI actions requiring human authorization."
-      : activeView === "evaluations"
-        ? "Measure agent quality, policy behavior, tool selection, and production readiness."
-        : "Define and execute repeatable production-readiness tests for enterprise AI agents."}
+      ? "Inspect enterprise AI agent executions, tools, quality, latency, and approval activity."
+      : activeView === "approvals"
+        ? "Review, govern, and track protected AI actions requiring human authorization."
+        : activeView === "evaluations"
+          ? "Measure agent quality, policy behavior, tool selection, and production readiness."
+          : activeView === "test-suites"
+            ? "Define and execute repeatable production-readiness tests for enterprise AI agents."
+            : activeView === "tools-mcp"
+              ? "Inspect registered enterprise tools, risk levels, and human-approval controls."
+              : "Review persisted governance and approval events across protected AI actions."}
 </p>
 </div>
 
@@ -3114,6 +3244,281 @@ if (evaluation.run_id) {
     </div>
   </section>
 )}
+      </>
+    )}
+  </section>
+)}
+{activeView === "tools-mcp" && (
+  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Registered Enterprise Tools
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Read-only registry of tools available to enterprise AI agents.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={loadTools}
+        disabled={toolsLoading}
+        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+      >
+        {toolsLoading ? "Refreshing..." : "Refresh"}
+      </button>
+    </div>
+
+    {toolsError && (
+      <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {toolsError}
+      </div>
+    )}
+
+    {toolsLoading && (
+      <p className="mt-5 text-sm text-slate-500">
+        Loading registered tools...
+      </p>
+    )}
+
+    {!toolsLoading && !toolsError && (
+      <>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Registered Tools
+            </p>
+
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {registeredTools.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Approval Protected
+            </p>
+
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {
+                registeredTools.filter(
+                  (tool) => tool.requires_approval
+                ).length
+              }
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Directly Callable
+            </p>
+
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {
+                registeredTools.filter(
+                  (tool) => !tool.requires_approval
+                ).length
+              }
+            </p>
+          </div>
+        </div>
+
+        {registeredTools.length === 0 ? (
+          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+            No registered tools are available.
+          </div>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Tool
+                    </th>
+
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Description
+                    </th>
+
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Risk
+                    </th>
+
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Human Approval
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {registeredTools.map((tool) => (
+                    <tr key={tool.name}>
+                      <td className="px-4 py-4 font-medium text-slate-900">
+                        {tool.name}
+                      </td>
+
+                      <td className="px-4 py-4 text-slate-600">
+                        {tool.description}
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            tool.risk_level === "high"
+                              ? "bg-red-50 text-red-700"
+                              : tool.risk_level === "medium"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {tool.risk_level}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            tool.requires_approval
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {tool.requires_approval
+                            ? "Required"
+                            : "Not required"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Tool execution is intentionally disabled from this dashboard view.
+          Protected actions continue to use policy checks and human approval workflows.
+        </div>
+      </>
+    )}
+  </section>
+)}
+{activeView === "audit-trail" && (
+  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Governance Audit Trail
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Persisted record of protected AI actions, approval events, and governance decisions.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={loadAuditEvents}
+        disabled={auditLoading}
+        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+      >
+        {auditLoading ? "Refreshing..." : "Refresh"}
+      </button>
+    </div>
+
+    {auditError && (
+      <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {auditError}
+      </div>
+    )}
+
+    {auditLoading && (
+      <p className="mt-5 text-sm text-slate-500">
+        Loading audit events...
+      </p>
+    )}
+
+    {!auditLoading && !auditError && (
+      <>
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Recent Audit Events
+          </p>
+
+          <p className="mt-2 text-2xl font-semibold text-slate-900">
+            {auditEvents.length}
+          </p>
+        </div>
+
+        {auditEvents.length === 0 ? (
+          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+            No audit events are available.
+          </div>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Event
+                    </th>
+
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Tool
+                    </th>
+
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Status
+                    </th>
+
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Approval ID
+                    </th>
+
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">
+                      Timestamp
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {auditEvents.map((event) => (
+                    <tr key={event.id}>
+                      <td className="px-4 py-4 font-medium text-slate-900">
+                        {event.event_type}
+                      </td>
+
+                      <td className="px-4 py-4 text-slate-600">
+                        {event.tool_name ?? "—"}
+                      </td>
+
+                      <td className="px-4 py-4">
+                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                          {event.status}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-4 font-mono text-xs text-slate-500">
+                        {event.approval_id ?? "—"}
+                      </td>
+
+                      <td className="px-4 py-4 text-slate-500">
+                        {event.created_at
+                          ? new Date(event.created_at).toLocaleString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </>
     )}
   </section>
