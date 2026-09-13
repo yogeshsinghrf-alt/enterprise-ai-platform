@@ -48,7 +48,7 @@ from backend.app.evaluations.test_generator import (
 from backend.app.agents.workflow import enterprise_workflow
 from backend.app.knowledge.document_loader import extract_document_text
 from backend.app.knowledge.chunker import chunk_text
-from backend.app.db.database import Base, SessionLocal, engine
+from backend.app.db.database import SessionLocal
 from backend.app.approvals.manager import (
     approve_request,
     create_approval_request,
@@ -96,10 +96,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-with engine.begin() as connection:
-    connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-
-Base.metadata.create_all(bind=engine)
 
 ROLE_LEVELS = {
     "viewer": 1,
