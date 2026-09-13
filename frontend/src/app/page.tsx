@@ -1620,9 +1620,6 @@ return (
     setActiveView("test-suites");
     loadTestSuites();
     loadTestSuiteRunHistory();
-    loadReliabilityScore(
-    "903240a3-0cbd-4a54-986e-cfceff0aaba8"
-    );
 
     testSuites.forEach((suite) => {
       loadTestSuiteRegression(suite.suite_id);
