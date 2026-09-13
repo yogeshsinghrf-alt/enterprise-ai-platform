@@ -245,6 +245,7 @@ export default function Home() {
   const [activeView, setActiveView] =
   useState<
   "overview" |
+  "agent-runs" |
   "approvals" |
   "evaluations" |
   "test-suites"
@@ -1474,9 +1475,17 @@ return (
   Overview
 </button>
 
-        <div className="px-3 py-2.5 text-sm text-slate-500">
-          Agent Runs
-        </div>
+<button
+  type="button"
+  onClick={() => setActiveView("agent-runs")}
+  className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${
+    activeView === "agent-runs"
+      ? "bg-slate-100 font-medium text-slate-900"
+      : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+  }`}
+>
+  Agent Runs
+</button>
 
 <button
   type="button"
@@ -1610,6 +1619,8 @@ return (
 <h1 className="mt-2 text-4xl font-semibold">
   {activeView === "overview"
     ? "AI Control Center"
+    : activeView === "agent-runs"
+    ? "Agent Runs"
     : activeView === "approvals"
       ? "Approval Operations"
       : activeView === "evaluations"
@@ -1620,6 +1631,8 @@ return (
 <p className="mt-3 text-slate-400">
   {activeView === "overview"
     ? "Operational visibility across enterprise AI agents."
+    : activeView === "agent-runs"
+    ? "Inspect enterprise AI agent executions, tools, quality, latency, and approval activity."
     : activeView === "approvals"
       ? "Review, govern, and track protected AI actions requiring human authorization."
       : activeView === "evaluations"
@@ -1640,7 +1653,7 @@ return (
           </div>
         )}
 
-        {activeView === "overview" && metrics && (
+        {(activeView === "overview" || activeView === "agent-runs") && metrics && (
           <>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard
