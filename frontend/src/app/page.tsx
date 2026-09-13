@@ -1756,7 +1756,7 @@ return (
                           </td>
 
                           <td className="px-5 py-4 text-slate-400">
-                            {run.model ?? "â€”"}
+                            {run.model ?? "-"}
                           </td>
 
                           <td className="px-5 py-4">
@@ -1772,7 +1772,7 @@ return (
                           </td>
 
                           <td className="px-5 py-4 font-medium text-slate-700">
-                            {run.evaluation_score ?? "â€”"}
+                            {run.evaluation_score ?? "-"}
                           </td>
 
                           <td className="px-5 py-4 text-slate-400">
@@ -1780,7 +1780,7 @@ return (
                               ? `${(
                                   run.latency_ms / 1000
                                 ).toFixed(2)}s`
-                              : "â€”"}
+                              : "-"}
                           </td>
 
                           <td className="px-5 py-4">
@@ -1865,7 +1865,7 @@ return (
                       value={
                         selectedRun.evaluation_score !== null
                           ? `${selectedRun.evaluation_score}/100`
-                          : "â€”"
+                          : "-"
                       }
                     />
 
@@ -1876,7 +1876,7 @@ return (
                           ? `${(
                               selectedRun.latency_ms / 1000
                             ).toFixed(2)}s`
-                          : "â€”"
+                          : "-"
                       }
                     />
                   </div>
@@ -1917,7 +1917,7 @@ return (
             </p>
 
             <p className="mt-1 font-mono text-xs font-medium text-slate-800">
-              {selectedRun.selected_tool ?? "â€”"}
+              {selectedRun.selected_tool ?? "-"}
             </p>
           </div>
 
@@ -1930,7 +1930,7 @@ return (
               className="mt-1 max-w-[260px] truncate font-mono text-xs font-medium text-slate-800"
               title={selectedRun.approval_id ?? ""}
             >
-              {selectedRun.approval_id ?? "â€”"}
+              {selectedRun.approval_id ?? "-"}
             </p>
           </div>
         </div>
@@ -2158,7 +2158,7 @@ return (
                                           trace.duration_ms /
                                           1000
                                         ).toFixed(2)}s`
-                                      : "â€”"}
+                                      : "-"}
                                   </span>
                                 </div>
                               </div>
@@ -2253,7 +2253,7 @@ return (
         <p className="mt-1 text-sm font-semibold text-slate-800">
           {selectedFailureDetails.evaluation_score !== null
             ? `${selectedFailureDetails.evaluation_score}/100`
-            : "â€”"}
+            : "-"}
         </p>
       </div>
 
@@ -2433,7 +2433,7 @@ return (
             value={
               evaluationMetrics.average_evaluation_score !== null
                 ? evaluationMetrics.average_evaluation_score
-                : "â€”"
+                : "-"
             }
             subtitle="Average evaluator quality score"
           />
@@ -2539,7 +2539,7 @@ if (evaluation.run_id) {
                       <td className="px-5 py-4 font-medium text-slate-700">
                         {evaluation.evaluation_score !== null
                           ? `${evaluation.evaluation_score}/100`
-                          : "â€”"}
+                          : "-"}
                       </td>
 
                       <td className="px-5 py-4">
@@ -2638,7 +2638,7 @@ if (evaluation.run_id) {
           value={
             selectedEvaluation.evaluation_score !== null
               ? `${selectedEvaluation.evaluation_score}/100`
-              : "â€”"
+              : "-"
           }
         />
 
@@ -2837,7 +2837,7 @@ if (evaluation.run_id) {
                 selectedFailureDetails
                   .evaluation_score !== null
                   ? `${selectedFailureDetails.evaluation_score}/100`
-                  : "â€”"
+                  : "-"
               }
             />
 
@@ -3062,7 +3062,7 @@ if (evaluation.run_id) {
                                       trace.duration_ms /
                                       1000
                                     ).toFixed(2)}s`
-                                  : "â€”"}
+                                  : "-"}
                               </span>
                             </div>
                           </div>
@@ -3736,7 +3736,7 @@ if (evaluation.run_id) {
                                     value={
                                       regression.previous_run
                                         ? `${regression.previous_run.pass_rate}%`
-                                        : "â€”"
+                                        : "-"
                                     }
                                   />
 
@@ -3749,7 +3749,7 @@ if (evaluation.run_id) {
                                     label="Change"
                                     value={
                                       passRateChange === null
-                                        ? "â€”"
+                                        ? "-"
                                         : `${passRateChange > 0 ? "+" : ""}${passRateChange} pp`
                                     }
                                   />
@@ -3804,7 +3804,7 @@ if (evaluation.run_id) {
                                     >
                                       {regression.failed_tests_change ===
                                       null
-                                        ? "â€”"
+                                        ? "-"
                                         : `${
                                             regression.failed_tests_change >
                                             0
@@ -3931,9 +3931,9 @@ if (evaluation.run_id) {
                         <span>
                           Score:{" "}
                           <strong className="font-medium text-slate-700">
-                            {item.previous_score ?? "â€”"}
-                            {" â†’ "}
-                            {item.current_score ?? "â€”"}
+                            {item.previous_score ?? "-"}
+                            {" → "}
+                            {item.current_score ?? "-"}
                           </strong>
                         </span>
                       </div>
@@ -4043,7 +4043,7 @@ if (evaluation.run_id) {
                             </strong>
                           </span>
 
-                          <span>â€¢</span>
+                          <span>•</span>
 
                           <span
                             className="font-mono"
@@ -4307,7 +4307,7 @@ if (evaluation.run_id) {
                             ? new Date(
                                 run.started_at
                               ).toLocaleString()
-                            : "â€”"}
+                            : "-"}
                         </td>
                       </tr>
                     ))}
@@ -4802,13 +4802,13 @@ function StatusBadge({ status }: { status: string }) {
 
 function formatDate(value: string | null) {
   if (!value) {
-    return "â€”";
+    return "-";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "â€”";
+    return "-";
   }
 
   return date.toLocaleString();
@@ -4866,7 +4866,7 @@ function formatNodeName(value: string) {
 
 function formatTraceValue(value: unknown) {
   if (value === null || value === undefined) {
-    return "â€”";
+    return "-";
   }
 
   if (typeof value === "boolean") {
