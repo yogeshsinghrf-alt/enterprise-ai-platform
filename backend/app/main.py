@@ -1,6 +1,8 @@
 import os
 import secrets
 import uuid
+import logging
+logger = logging.getLogger(__name__)
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select, text
@@ -1015,11 +1017,16 @@ def execute_test_case_evaluation(
         agent_result = execute_agent_task(
             task=test_case["input_prompt"],
         )
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "Evaluation test execution failed for case_id=%s",
+            case_id,
+       )
+
         raise HTTPException(
-            status_code=500,
-            detail="Evaluation test execution failed.",
-        )
+        status_code=500,
+        detail="Evaluation test execution failed.",
+       ) from exc
 
     run_metrics = (
         agent_result.get("run_metrics") or {}
