@@ -35,6 +35,50 @@ Many AI-agent demonstrations stop when the model produces a plausible answer. En
 
 This platform adds that missing reliability and control layer. It enables teams to test agent behavior before release, observe executions, detect governance violations, compare regressions, and make evidence-based pilot-readiness decisions.
 
+## Visual Walkthrough
+
+### Production-Readiness Regression
+
+![Production-readiness regression analysis](docs/images/01-production-readiness-regression.png)
+
+Two consecutive 100% IT Operations test-suite runs, zero failures, and stable behavior across system-health and approval-controlled service-restart cases.
+
+### AI Test-Suite Definition
+
+![AI test-suite definition](docs/images/02-ai-test-suite-definition.png)
+
+Repeatable test cases define the expected tool, approval behavior, and minimum evaluation threshold before batch execution.
+
+### Human-Approval Governance
+
+![Human-approval governance](docs/images/03-human-approval-governance.png)
+
+High-risk financial and operational actions are intercepted and held until an operator explicitly approves or rejects execution.
+
+### Governed Tool Registry
+
+![Governed enterprise tool registry](docs/images/04-governed-tool-registry.png)
+
+The read-only registry classifies tools by risk and approval requirements while separating inspection from execution.
+
+### Persistent Governance Audit Trail
+
+![Persistent governance audit trail](docs/images/05-persistent-governance-audit-trail.png)
+
+Approval requests are persisted with status, identifiers, and timestamps for traceability.
+
+### Evaluation and Diagnostic Evidence
+
+![Evaluation and diagnostic evidence](docs/images/06-evaluation-and-diagnostic-evidence.png)
+
+Deterministic checks confirm correct tool selection and approval enforcement, while the LLM evaluator independently identifies unsupported execution details and adjusts the quality score.
+
+### Agent Execution Trace
+
+![Agent execution trace](docs/images/07-agent-execution-trace.png)
+
+The trace exposes the step-by-step LangGraph processing path, node status, selected tool, risk level, approval gate, and per-stage latency.
+
 ---
 
 ## Why This Project Exists
