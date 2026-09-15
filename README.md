@@ -1,10 +1,39 @@
 # Enterprise AI Agent Reliability & Control Platform
 
-A production-oriented platform for **testing, evaluating, governing, monitoring, and controlling enterprise AI agents** before and during deployment.
+**A production-oriented control plane for testing, evaluating, governing, monitoring, and controlling enterprise AI agents before and during deployment.**
+
+[Live controlled-pilot demo](https://enterprise-ai-platform-brown.vercel.app/) · [Source repository](https://github.com/yogeshsinghrf-alt/enterprise-ai-platform) · Password-protected demo access
+
+> **For recruiters and technical leaders:** This project demonstrates an end-to-end transition from an AI-agent prototype to a measurable, governed, auditable, and deployable controlled-pilot system.
+
+## At a Glance
+
+| Area | Demonstrated capability |
+| --- | --- |
+| Reliability | Persistent test suites, batch evaluation, regression analysis, failure exploration, and readiness scoring |
+| Governance | Risk-classified tools, human approval, approval replay protection, policy enforcement, and audit history |
+| Agent operations | LangGraph orchestration, RAG with citations, execution traces, quality metrics, and tool-use evidence |
+| Integration | Governed MCP-oriented tools and authenticated evaluation of external agents/APIs |
+| Deployment | Password-protected Next.js application on Vercel with a FastAPI control plane and PostgreSQL/pgvector on Render |
+| Validation | Customer Support, Finance & Procurement, and IT Operations demo suites achieved 100% operational pass rates in final baseline runs |
+
+### Evidence from Failure Injection
+
+- Baseline external-agent test suite: **5/5 passed (100%)**.
+- Approval-bypass injection: **4/5 passed (80%)**, with the governance violation correctly detected.
+- Unreachable external-agent test: connectivity failure correctly persisted and classified instead of crashing the evaluation workflow.
+
+These are controlled demonstration results—not claims of independent certification or universal production reliability.
 
 The project demonstrates how organizations can move beyond standalone LLM prototypes toward AI systems with **reliability evaluation, human approval, policy controls, auditability, execution tracing, tool governance, and production-readiness assessment**.
 
-> **V0.9 Status:** Deployed and validated for controlled-pilot use. The platform is a portfolio and pilot implementation, not an independently certified enterprise production system.
+> **V0.9 Status:** Deployed and validated for controlled-pilot use. This is a portfolio and pilot implementation, not an independently certified enterprise production system.
+
+## Business Problem and Outcome
+
+Many AI-agent demonstrations stop when the model produces a plausible answer. Enterprises need evidence that the agent selects the right tools, respects approval boundaries, handles external failures, avoids regressions, and leaves an auditable record.
+
+This platform adds that missing reliability and control layer. It enables teams to test agent behavior before release, observe executions, detect governance violations, compare regressions, and make evidence-based pilot-readiness decisions.
 
 ---
 
