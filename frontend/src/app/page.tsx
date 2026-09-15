@@ -1735,7 +1735,7 @@ return (
     Enterprise AI Runtime & Control Platform
   </p>
 
-<h1 className="text-3xl font-semibold tracking-tight text-white">
+<h1 className="text-3xl font-semibold tracking-tight text-slate-900">
   {activeView === "overview"
     ? "Overview"
     : activeView === "agent-runs"
@@ -1751,7 +1751,7 @@ return (
               : "Audit Trail"}
 </h1>
 
-<p className="mt-3 text-slate-400">
+<p className="mt-3 text-slate-600">
   {activeView === "overview"
     ? "Operational visibility across enterprise AI agents."
     : activeView === "agent-runs"
